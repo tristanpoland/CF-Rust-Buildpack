@@ -36,17 +36,8 @@ load_env_vars "$ENV_DIR"
 RUST_VERSION=$(detect_rust_version "$BUILD_DIR")
 echo "-----> Using Rust version: $RUST_VERSION"
 
-# Try to use cached Rust toolchain
-if has_cached_toolchain "$CACHE_DIR" "$RUST_VERSION"; then
-  echo "-----> Using cached Rust toolchain ($RUST_VERSION)"
-  restore_cached_toolchain "$CACHE_DIR" "$BUILD_DIR"
-else
-  echo "-----> Installing Rust toolchain ($RUST_VERSION)"
-  install_rust_toolchain "$BUILD_DIR" "$RUST_VERSION"
-  
-  # Cache the toolchain for future builds
-  cache_toolchain "$BUILD_DIR" "$CACHE_DIR" "$RUST_VERSION"
-fi
+echo "-----> Installing Rust toolchain ($RUST_VERSION)"
+install_rust_toolchain "$BUILD_DIR" "$RUST_VERSION"
 
 # Restore cached dependencies
 echo "-----> Restoring cached dependencies"
