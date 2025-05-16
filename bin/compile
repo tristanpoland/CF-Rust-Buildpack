@@ -91,4 +91,4 @@ chmod +x "$BUILD_DIR/.profile.d/rust.sh"
 # Print build duration
 end_time=$(date +%s)
 build_time=$((end_time - start_time))
-echo "-----> Rust buildpack completed in ${build_time}s"
+echo "-----> Rust buildpack completed in ${build_time}s"# Fixing permissions issue
