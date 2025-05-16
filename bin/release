@@ -11,8 +11,12 @@ source "$BP_DIR/lib/utils.sh"
 # Check for Procfile first
 if [ -f "$BUILD_DIR/Procfile" ]; then
   # User-defined process types take precedence
-  echo "-----> Procfile detected"
-  exit 0
+  echo "-----> Procfile detected" >&2
+  cat << EOF
+---
+default_process_types:
+  web: $(cat "$BUILD_DIR/Procfile" | grep "^web:" | sed 's/^web: *//')
+EOF
 else
   # Auto-detect the main binary
   PKG_NAME=$(get_package_name "$BUILD_DIR")
@@ -30,7 +34,7 @@ else
   fi
   
   if [ -z "$EXEC_PATH" ]; then
-    echo "-----> No executable found in target/release, looking in target/debug"
+    echo "-----> No executable found in target/release, looking in target/debug" >&2
     if [ -f "$BUILD_DIR/target/debug/$PKG_NAME" ]; then
       EXEC_PATH="./target/debug/$PKG_NAME"
     else
@@ -42,15 +46,15 @@ else
   fi
   
   if [ -z "$EXEC_PATH" ]; then
-    echo "-----> No executable binary found"
-    echo "-----> Using 'cargo run --release' as fallback"
+    echo "-----> No executable binary found" >&2
+    echo "-----> Using 'cargo run --release' as fallback" >&2
     cat << EOF
 ---
 default_process_types:
   web: cd \$HOME && cargo run --release
 EOF
   else
-    echo "-----> Using auto-detected binary: $EXEC_PATH"
+    echo "-----> Using auto-detected binary: $EXEC_PATH" >&2
     cat << EOF
 ---
 default_process_types:
