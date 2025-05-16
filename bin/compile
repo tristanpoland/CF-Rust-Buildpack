@@ -1,0 +1,94 @@
+#!/usr/bin/env bash
+# bin/compile
+# Compiles a Rust application
+
+set -e
+set -o pipefail
+
+# Parse arguments
+BUILD_DIR=$1
+CACHE_DIR=$2
+ENV_DIR=$3
+BP_DIR=$(dirname $(dirname $0))
+
+# Load buildpack utilities
+source "$BP_DIR/lib/utils.sh"
+
+# Initial setup
+echo "-----> Rust Buildpack"
+start_time=$(date +%s)
+
+# Create necessary directories
+mkdir -p "$CACHE_DIR"
+mkdir -p "$BUILD_DIR/.cargo"
+mkdir -p "$BUILD_DIR/.rustup"
+mkdir -p "$BUILD_DIR/.profile.d"
+
+# Export environment variables
+export CARGO_HOME="$BUILD_DIR/.cargo"
+export RUSTUP_HOME="$BUILD_DIR/.rustup"
+export PATH="$CARGO_HOME/bin:$PATH"
+
+# Load environment variables from ENV_DIR
+load_env_vars "$ENV_DIR"
+
+# Determine Rust version through auto-detection
+RUST_VERSION=$(detect_rust_version "$BUILD_DIR")
+echo "-----> Using Rust version: $RUST_VERSION"
+
+# Try to use cached Rust toolchain
+if has_cached_toolchain "$CACHE_DIR" "$RUST_VERSION"; then
+  echo "-----> Using cached Rust toolchain ($RUST_VERSION)"
+  restore_cached_toolchain "$CACHE_DIR" "$BUILD_DIR"
+else
+  echo "-----> Installing Rust toolchain ($RUST_VERSION)"
+  install_rust_toolchain "$BUILD_DIR" "$RUST_VERSION"
+  
+  # Cache the toolchain for future builds
+  cache_toolchain "$BUILD_DIR" "$CACHE_DIR" "$RUST_VERSION"
+fi
+
+# Restore cached dependencies
+echo "-----> Restoring cached dependencies"
+restore_cached_dependencies "$BUILD_DIR" "$CACHE_DIR"
+
+# Determine build options
+BUILD_OPTS=$(get_build_options "$BUILD_DIR" "$ENV_DIR")
+
+# Build the application
+echo "-----> Building Rust application with cargo"
+cd "$BUILD_DIR"
+set +e
+BUILD_OUTPUT=$(mktemp)
+if cargo build $BUILD_OPTS 2>&1 | tee "$BUILD_OUTPUT"; then
+  BUILD_SUCCESS=true
+else
+  BUILD_SUCCESS=false
+fi
+set -e
+
+if [ "$BUILD_SUCCESS" = "true" ]; then
+  echo "-----> Build completed successfully"
+else
+  # Provide helpful error information
+  echo "-----> Build failed"
+  analyze_build_failure "$BUILD_OUTPUT"
+  exit 1
+fi
+
+# Cache dependencies for future builds
+echo "-----> Caching dependencies for future builds"
+cache_dependencies "$BUILD_DIR" "$CACHE_DIR"
+
+# Set up runtime environment
+cat > "$BUILD_DIR/.profile.d/rust.sh" << EOF
+# Set up Rust environment
+export PATH="\$HOME/.cargo/bin:\$PATH"
+export RUST_BACKTRACE=1
+EOF
+chmod +x "$BUILD_DIR/.profile.d/rust.sh"
+
+# Print build duration
+end_time=$(date +%s)
+build_time=$((end_time - start_time))
+echo "-----> Rust buildpack completed in ${build_time}s"

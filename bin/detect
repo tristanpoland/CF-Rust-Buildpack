@@ -1,0 +1,27 @@
+#!/usr/bin/env bash
+# bin/detect
+# Detects a Rust application
+
+set -e
+
+BUILD_DIR=$1
+
+# Primary detection: Cargo.toml existence
+if [ -f "$BUILD_DIR/Cargo.toml" ]; then
+  echo "Rust"
+  exit 0
+fi
+
+# Secondary detection: Check for rust-toolchain files
+if [ -f "$BUILD_DIR/rust-toolchain" ] || [ -f "$BUILD_DIR/rust-toolchain.toml" ]; then
+  echo "Rust"
+  exit 0
+fi
+
+# Final check: Look for src/main.rs or src/lib.rs
+if [ -f "$BUILD_DIR/src/main.rs" ] || [ -f "$BUILD_DIR/src/lib.rs" ]; then
+  echo "Rust"
+  exit 0
+fi
+
+exit 1

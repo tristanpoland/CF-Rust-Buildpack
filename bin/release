@@ -1,0 +1,60 @@
+#!/usr/bin/env bash
+# bin/release
+# Provides metadata for running the application
+
+BUILD_DIR=$1
+BP_DIR=$(dirname $(dirname $0))
+
+# Load utilities
+source "$BP_DIR/lib/utils.sh"
+
+# Check for Procfile first
+if [ -f "$BUILD_DIR/Procfile" ]; then
+  # User-defined process types take precedence
+  echo "-----> Procfile detected"
+  exit 0
+else
+  # Auto-detect the main binary
+  PKG_NAME=$(get_package_name "$BUILD_DIR")
+  
+  # Look for the binary in target/release
+  if [ -f "$BUILD_DIR/target/release/$PKG_NAME" ]; then
+    EXEC_PATH="./target/release/$PKG_NAME"
+  else
+    # Find any executable in target/release directory
+    EXEC_PATH=$(find "$BUILD_DIR/target/release" -type f -executable -not -path "*/\.*" -not -path "*/deps/*" | head -n1)
+    if [ -n "$EXEC_PATH" ]; then
+      # Format the path as relative to the app directory
+      EXEC_PATH="./${EXEC_PATH#$BUILD_DIR/}"
+    fi
+  fi
+  
+  if [ -z "$EXEC_PATH" ]; then
+    echo "-----> No executable found in target/release, looking in target/debug"
+    if [ -f "$BUILD_DIR/target/debug/$PKG_NAME" ]; then
+      EXEC_PATH="./target/debug/$PKG_NAME"
+    else
+      EXEC_PATH=$(find "$BUILD_DIR/target/debug" -type f -executable -not -path "*/\.*" -not -path "*/deps/*" | head -n1)
+      if [ -n "$EXEC_PATH" ]; then
+        EXEC_PATH="./${EXEC_PATH#$BUILD_DIR/}"
+      fi
+    fi
+  fi
+  
+  if [ -z "$EXEC_PATH" ]; then
+    echo "-----> No executable binary found"
+    echo "-----> Using 'cargo run --release' as fallback"
+    cat << EOF
+---
+default_process_types:
+  web: cd \$HOME && cargo run --release
+EOF
+  else
+    echo "-----> Using auto-detected binary: $EXEC_PATH"
+    cat << EOF
+---
+default_process_types:
+  web: $EXEC_PATH
+EOF
+  fi
+fi
